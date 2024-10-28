@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { createGame } from '@/lib/game/actions';
+import { createNewGame } from '@/lib/game/actions';
 import { PREDEFINED_QUESTIONS } from '@/lib/game/constants';
 
 export default function CreateGame() {
@@ -27,7 +27,7 @@ export default function CreateGame() {
         formData.append('questions', JSON.stringify(randomQuestions));
       }
 
-      const result = await createGame(formData);
+      const result = await createNewGame(formData);
       if (result.success) {
         // Save player name for socket connection
         localStorage.setItem('playerName', formData.get('hostName'));

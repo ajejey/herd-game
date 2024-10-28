@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation';
-import redis from '@/lib/redis/client';
+import { getGame } from '@/lib/appwrite/database';
 import GameRoom from '@/components/game/GameRoom';
 
 async function getGameData(roomCode) {
   try {
-    const gameData = await redis.get(`game:${roomCode}`);
+    const gameData = await getGame(roomCode);
     console.log('Game data:', gameData);
     return gameData ? gameData : null;
   } catch (error) {

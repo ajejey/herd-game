@@ -18,12 +18,13 @@ export default function JoinGame() {
     try {
       const result = await joinGame(formData);
       if (result.success) {
-        // Save player name for socket connection
+        // Save player name for future use
         localStorage.setItem('playerName', formData.get('playerName'));
         router.push(`/game/${formData.get('roomCode')}`);
       }
     } catch (error) {
       setError(error.message || 'Failed to join game');
+    } finally {
       setIsLoading(false);
     }
   }

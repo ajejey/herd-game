@@ -2,13 +2,10 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Users, Send, Crown, RefreshCw } from 'lucide-react';
-import {
-  pollGameState,
-  startGame,
-  submitAnswer,
-  moveToNextRound
-} from '@/lib/game/actions';
+import { Users, Send, Crown, RefreshCw, Home, RefreshCwIcon, User } from 'lucide-react';
+import { subscribeToGame } from '@/lib/appwrite/database';
+import { startGame, submitAnswer, moveToNextRound } from '@/lib/game/actions';
+import Link from 'next/link';
 
 export default function GameRoom({ initialGameState, roomCode }) {
   const [gameState, setGameState] = useState(initialGameState);
@@ -17,56 +14,43 @@ export default function GameRoom({ initialGameState, roomCode }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const playerName = localStorage.getItem('playerName');
 
-  const refreshGameState = useCallback(async () => {
-    if (isRefreshing) return;
+  console.log('Game state:', gameState);
 
-    setIsRefreshing(true);
-    try {
-      const newState = await pollGameState(roomCode, playerName);
-      if (newState) {
-        setGameState(newState);
-      }
-    } catch (error) {
-      console.error('Refresh error:', error);
-      setError('Failed to refresh game state');
-    } finally {
-      setTimeout(() => setIsRefreshing(false), 5000);
-    }
-  }, [roomCode, playerName, isRefreshing]);
+  useEffect(() => {
+    const unsubscribe = subscribeToGame(roomCode, (updatedGameState) => {
+      // updatedGameState is already parsed in the subscribeToGame function
+      setGameState(updatedGameState);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [roomCode]);
+
 
   const handleStartGame = async () => {
     try {
-      const result = await startGame({ roomCode, playerName });
-      if (result.success && result.gameState) {
-        setGameState(result.gameState);
-      }
+      await startGame({ roomCode, playerName });
     } catch (error) {
-      setError(error.message);
+      console.error('Failed to start game:', error);
     }
   };
 
   const handleSubmitAnswer = async () => {
     if (!answer.trim()) return;
-
     try {
-      const result = await submitAnswer({ roomCode, playerName, answer: answer.trim() });
-      if (result.success && result.gameState) {
-        setGameState(result.gameState);
-      }
+      await submitAnswer({ roomCode, playerName, answer: answer.trim() });
       setAnswer('');
     } catch (error) {
-      setError(error.message);
+      console.error('Failed to submit answer:', error);
     }
   };
 
   const handleNextRound = async () => {
     try {
-      const result = await moveToNextRound(roomCode);
-      if (result.success && result.gameState) {
-        setGameState(result.gameState);
-      }
+      await moveToNextRound(roomCode);
     } catch (error) {
-      setError(error.message);
+      console.error('Failed to move to next round:', error);
     }
   };
 
@@ -110,7 +94,7 @@ export default function GameRoom({ initialGameState, roomCode }) {
               )}
             </div>
           )}
-          
+
 
           {gameState.status === 'playing' && (
             <div>
@@ -156,7 +140,7 @@ export default function GameRoom({ initialGameState, roomCode }) {
             </div>
           )}
           {gameState.status === 'gameOver' && (
-            <div>
+            <div className="space-y-6">
               <h2 className="text-xl font-semibold mb-4">Game Over</h2>
               <div className="space-y-2">
                 {gameState.players
@@ -168,13 +152,19 @@ export default function GameRoom({ initialGameState, roomCode }) {
                     </div>
                   ))}
               </div>
+              <Link href="/" className="inline-block w-full">
+                <button className="w-full px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-300 ease-in-out transform hover:-translate-y-1 shadow-md flex items-center justify-center">
+                  <RefreshCwIcon className="w-5 h-5 mr-2" />
+                  Play Again
+                </button>
+              </Link>
             </div>
           )}
         </div>
       </div>
 
       {/* Player List */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      {/* <div className="bg-white rounded-lg p-4 shadow-sm">
         <h3 className="font-semibold mb-3">Players</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {gameState.players.map((player) => (
@@ -187,25 +177,46 @@ export default function GameRoom({ initialGameState, roomCode }) {
             </div>
           ))}
         </div>
+      </div> */}
+
+
+<div className="bg-white rounded-lg p-6 shadow-md">
+  <h3 className="text-xl font-semibold mb-4 text-gray-800">Players</h3>
+  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    {gameState.players.map((player) => (
+      <div
+        key={player.id}
+        className="bg-gray-50 rounded-lg p-3 flex items-center space-x-3 transition-all duration-300 hover:shadow-md hover:bg-gray-100"
+      >
+        <div className="flex-shrink-0">
+          {player.isHost ? (
+            <Crown className="w-6 h-6 text-yellow-500" />
+          ) : (
+            <User className="w-6 h-6 text-gray-400" />
+          )}
+        </div>
+        <div className="flex-grow min-w-0">
+          <p className="text-sm font-medium text-gray-900 truncate">
+            {player.name}
+          </p>
+          <p className="text-xs text-gray-500">
+            {player.isHost ? 'Host' : 'Player'}
+          </p>
+        </div>
+        <div className="flex-shrink-0 text-sm font-semibold text-blue-600">
+          {player.score}
+        </div>
       </div>
+    ))}
+  </div>
+</div>
 
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
           <span className="block sm:inline">{error}</span>
         </div>
       )}
-    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
-      {/* Add the Refresh Game button */}
-      <button
-            onClick={refreshGameState}
-            disabled={isRefreshing}
-            className={`flex w-full items-center justify-center px-4 py-2 bg-blue-500 text-white rounded-md ${isRefreshing ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'
-              }`}
-          >
-            <RefreshCw className="w-5 h-5 mr-2" />
-            {isRefreshing ? 'Refreshing...' : 'Refresh Game'}
-          </button>
-      </div>
+
     </div>
 
   );
