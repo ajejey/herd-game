@@ -1,11 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { createNewGame } from '@/lib/game/actions';
 import { PREDEFINED_QUESTIONS } from '@/lib/game/constants';
+import Spinner from '@/components/Spinner';
+
+// This can be placed outside the component if you want to maintain the state across renders
+const recentlyUsedQuestions = new Set();
 
 export default function CreateGame() {
   const router = useRouter();
@@ -13,6 +17,7 @@ export default function CreateGame() {
   const [isLoading, setIsLoading] = useState(false);
   const [useCustomQuestions, setUseCustomQuestions] = useState(false);
   const [customQuestions, setCustomQuestions] = useState(Array(5).fill(''));
+  const [availableQuestions, setAvailableQuestions] = useState([]);
 
   async function handleSubmit(formData) {
     setIsLoading(true);
@@ -23,7 +28,7 @@ export default function CreateGame() {
       if (useCustomQuestions) {
         formData.append('questions', JSON.stringify(customQuestions));
       } else {
-        const randomQuestions = getRandomQuestions(PREDEFINED_QUESTIONS, 5);
+        const randomQuestions = getRandomQuestions(5);
         formData.append('questions', JSON.stringify(randomQuestions));
       }
 
@@ -39,10 +44,44 @@ export default function CreateGame() {
     }
   }
 
-  function getRandomQuestions(questions, count) {
-    const shuffled = [...questions].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, count);
+  useEffect(() => {
+    // Initialize available questions
+    setAvailableQuestions([...PREDEFINED_QUESTIONS]);
+  }, []);
+
+  function getRandomQuestions(count) {
+    // If we're running low on available questions, reset the pool
+    if (availableQuestions.length < count) {
+      setAvailableQuestions([...PREDEFINED_QUESTIONS]);
+      recentlyUsedQuestions.clear();
+    }
+
+    const shuffled = availableQuestions.sort(() => Math.random() - 0.5);
+    const selectedQuestions = [];
+
+    for (let i = 0; i < count; i++) {
+      let question = shuffled.pop();
+      
+      // If this question was recently used, try to get another one
+      while (recentlyUsedQuestions.has(question) && shuffled.length > 0) {
+        question = shuffled.pop();
+      }
+
+      selectedQuestions.push(question);
+      recentlyUsedQuestions.add(question);
+
+      // Limit the size of recentlyUsedQuestions to prevent it from growing too large
+      if (recentlyUsedQuestions.size > PREDEFINED_QUESTIONS.length / 2) {
+        recentlyUsedQuestions.delete(recentlyUsedQuestions.values().next().value);
+      }
+    }
+
+    // Update the available questions
+    setAvailableQuestions(shuffled);
+
+    return selectedQuestions;
   }
+
 
   function handleCustomQuestionChange(index, value) {
     const newQuestions = [...customQuestions];
