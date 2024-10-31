@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Users, ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { createNewGame } from '@/lib/game/actions';
-import { PREDEFINED_QUESTIONS } from '@/lib/game/constants';
+import { NO_OF_QUESTIONS, PREDEFINED_QUESTIONS } from '@/lib/game/constants';
 import Spinner from '@/components/Spinner';
 
 // This can be placed outside the component if you want to maintain the state across renders
@@ -16,7 +16,7 @@ export default function CreateGame() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [useCustomQuestions, setUseCustomQuestions] = useState(false);
-  const [customQuestions, setCustomQuestions] = useState(Array(5).fill(''));
+  const [customQuestions, setCustomQuestions] = useState(Array(NO_OF_QUESTIONS).fill(''));
   const [availableQuestions, setAvailableQuestions] = useState([]);
 
   async function handleSubmit(formData) {
@@ -28,7 +28,7 @@ export default function CreateGame() {
       if (useCustomQuestions) {
         formData.append('questions', JSON.stringify(customQuestions));
       } else {
-        const randomQuestions = getRandomQuestions(5);
+        const randomQuestions = getRandomQuestions(NO_OF_QUESTIONS);
         formData.append('questions', JSON.stringify(randomQuestions));
       }
 
