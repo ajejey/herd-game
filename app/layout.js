@@ -1,6 +1,7 @@
 import localFont from "next/font/local";
 import "./globals.css";
 import Footer from "@/components/Footer";
+import { Suspense } from "react";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -26,7 +27,9 @@ export default function RootLayout({ children }) {
       >
          <div className="flex flex-col min-h-screen">
       <main className="flex-grow">
-        {children}
+        <Suspense fallback={<div>Loading...</div>}>
+          {children}
+        </Suspense>
       </main>
       {/* <Footer /> */}
     </div>
