@@ -24,8 +24,8 @@ export default async function GameRoomPage({ params }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <GameRoom 
-        initialGameState={gameData} 
+      <GameRoom
+        initialGameState={gameData}
         roomCode={roomCode}
       />
     </div>
