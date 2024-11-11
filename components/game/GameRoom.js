@@ -2,12 +2,15 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Users, Send, Crown, RefreshCw, Home, RefreshCwIcon, User, Check, Copy } from 'lucide-react';
+import { Users, Send, Crown, RefreshCw, Home, RefreshCwIcon, User, Check, Copy, Play } from 'lucide-react';
 import { subscribeToGame } from '@/lib/appwrite/database';
 import { startGame, submitAnswer, moveToNextRound } from '@/lib/game/actions';
 import Link from 'next/link';
 import { GameStatus } from '@/lib/game/types';
 import Spinner from '../Spinner';
+import blackSheep from '../../app/images/blackSheep.png'
+import Image from 'next/image';
+import { redirect } from 'next/navigation';
 
 export default function GameRoom({ initialGameState, roomCode }) {
   const [gameState, setGameState] = useState(initialGameState);
@@ -22,13 +25,25 @@ export default function GameRoom({ initialGameState, roomCode }) {
   const [isMovingToNextRound, setIsMovingToNextRound] = useState(false);
 
 
-  const copyToClipboard = async () => {
+  // Check if the user is already in the game 
+  console.log('Player name:', playerName);
+  const isPlayerInGame = playerName && gameState.players.some(p => p.name === playerName);
+
+  if (!isPlayerInGame) {
+    // If the player is not in the game, redirect to join page with roomCode
+    redirect(`/game/join?roomCode=${roomCode}`);
+  }
+
+
+
+  const copyGameLink = async () => {
+    const gameUrl = `${window.location.origin}/game/${roomCode}`;
     try {
-      await navigator.clipboard.writeText(roomCode);
+      await navigator.clipboard.writeText(gameUrl);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000); // Reset after 2 seconds
     } catch (err) {
-      console.error('Failed to copy text: ', err);
+      console.error('Failed to copy game link:', err);
     }
   };
 
@@ -46,7 +61,7 @@ export default function GameRoom({ initialGameState, roomCode }) {
       setIsSubmittingAnswer(false);
     }
   };
-  
+
   useEffect(() => {
     if (gameState.status === GameStatus.PLAYING) {
       setHasAnswered(false);
@@ -65,7 +80,7 @@ export default function GameRoom({ initialGameState, roomCode }) {
   }, [roomCode]);
 
 
- const handleStartGame = async () => {
+  const handleStartGame = async () => {
     setIsStartingGame(true);
     try {
       await startGame({ roomCode, playerName });
@@ -77,15 +92,6 @@ export default function GameRoom({ initialGameState, roomCode }) {
     }
   };
 
-  // const handleSubmitAnswer = async () => {
-  //   if (!answer.trim()) return;
-  //   try {
-  //     await submitAnswer({ roomCode, playerName, answer: answer.trim() });
-  //     setAnswer('');
-  //   } catch (error) {
-  //     console.error('Failed to submit answer:', error);
-  //   }
-  // };
 
   const handleNextRound = async () => {
     setIsMovingToNextRound(true);
@@ -105,17 +111,33 @@ export default function GameRoom({ initialGameState, roomCode }) {
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
       {/* Room Header */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Room: {roomCode}</h1>
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5" />
-            <span>{gameState.players.length} players</span>
+      <div className="bg-white rounded-lg p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">Room</h2>
+            <p className="text-lg text-gray-600 font-mono">{roomCode}</p>
+          </div>
+          <div className="flex items-center gap-3 bg-gray-100 px-4 py-2 rounded-full">
+            <Users className="w-5 h-5 text-gray-600" />
+            <span className="font-medium text-gray-700">{gameState.players.length} players</span>
           </div>
         </div>
-        {gameState.status !== 'waiting' && (
-          <div className="mt-2">
-            Round {gameState.currentRoundIndex + 1} of {gameState.questions.length}
+
+        {gameState.status === GameStatus.WAITING && isHost && (
+          <button
+            onClick={copyGameLink}
+            className="w-full mt-2 px-4 py-2 border border-blue-500 text-blue-800 rounded-lg hover:bg-blue-300 transition-colors flex items-center justify-center font-medium"
+          >
+            {isCopied ? <Check className="w-5 h-5 mr-2" /> : <Copy className="w-5 h-5 mr-2" />}
+            {isCopied ? 'Game Link Copied!' : 'Copy Game Link'}
+          </button>
+        )}
+
+        {gameState.status !== GameStatus.WAITING && (
+          <div className="mt-2 text-center">
+            <span className="font-medium text-gray-700">
+              Round {gameState.currentRoundIndex + 1} of {gameState.questions.length}
+            </span>
           </div>
         )}
       </div>
@@ -123,74 +145,103 @@ export default function GameRoom({ initialGameState, roomCode }) {
       {/* Game Status */}
       <div className="bg-white rounded-lg p-4 shadow-sm">
         <div className="text-center">
-        {gameState.status === GameStatus.WAITING && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Waiting for players...</h2>
-          {isHost && (
-            <button
-              onClick={handleStartGame}
-              disabled={gameState.players.length < 2 || isStartingGame}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-            >
-              {isStartingGame ? <Spinner /> : 'Start Game'}
-            </button>
+          {gameState.status === GameStatus.WAITING && (
+            <div className="bg-white rounded-lg p-6 shadow-sm text-center">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-4">Waiting for players...</h2>
+              <div className="flex items-center justify-center space-x-4">
+                {/* <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-full font-medium">
+                  {gameState.players.length} Players
+                </div> */}
+                {isHost && (
+                  <button
+                    onClick={handleStartGame}
+                    disabled={gameState.players.length < 2 || isStartingGame}
+                    className="px-6 py-2 bg-green-500 text-white rounded-full font-medium hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center"
+                  >
+                    {isStartingGame ? (
+                      <>
+                        <Spinner className="w-5 h-5 mr-2" />
+                        Starting...
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-5 h-5 mr-2" />
+                        Start Game
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+              {isHost && gameState.players.length < 2 && (
+                <p className="text-sm text-gray-600 mt-4">At least 2 players are needed to start the game.</p>
+              )}
+            </div>
           )}
-        </div>
-      )}
 
 
-{gameState.status === GameStatus.PLAYING && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">{gameState.currentRound.question}</h2>
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md flex-grow disabled:bg-gray-100"
-              placeholder={hasAnswered ? "Waiting for other players..." : "Your answer"}
-              disabled={hasAnswered || isSubmittingAnswer}
-            />
-            <button
-              onClick={handleSubmitAnswer}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-              disabled={hasAnswered || isSubmittingAnswer}
-            >
-              {isSubmittingAnswer ? <Spinner /> : <Send className="w-5 h-5" />}
-            </button>
-          </div>
-          {hasAnswered && (
-            <p className="text-sm text-gray-600">Your answer has been submitted. Waiting for other players...</p>
+          {gameState.status === GameStatus.PLAYING && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold">{gameState.currentRound.question}</h2>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md flex-grow disabled:bg-gray-100"
+                  placeholder={hasAnswered ? "Waiting for other players..." : "Your answer"}
+                  disabled={hasAnswered || isSubmittingAnswer}
+                />
+                <button
+                  onClick={handleSubmitAnswer}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  disabled={hasAnswered || isSubmittingAnswer}
+                >
+                  {isSubmittingAnswer ? <Spinner /> : <Send className="w-5 h-5" />}
+                </button>
+              </div>
+              {hasAnswered && (
+                <p className="text-sm text-gray-600">Your answer has been submitted. Waiting for other players...</p>
+              )}
+            </div>
           )}
-        </div>
-      )}
 
 
           {gameState.status === 'roundEnd' && (
             <div>
               <h2 className="text-xl font-semibold mb-4">Round Results</h2>
               <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold"></span>
+                  <span className="font-semibold">Points</span>
+                </div>
                 {gameState.players.map((player) => (
                   <div key={player.id} className="flex justify-between items-center">
                     <span>{player.name}: {gameState.currentRound.answers[player.id] || 'No answer'}</span>
-                    <span>Score: {player.score}</span>
+                    <span className="flex items-center gap-2">
+                      {player.isBlackSheep &&
+                        <span>
+                          <Image src={blackSheep} width={24} height={24} alt="Black Sheep" className="w-6 h-6" />
+                        </span>
+                      }
+                      <span>{player.score}</span>
+                    </span>
                   </div>
                 ))}
               </div>
               {isHost && (
-            <button
-              onClick={handleNextRound}
-              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center"
-              disabled={isMovingToNextRound}
-            >
-              {isMovingToNextRound ? <Spinner /> : (
-                <>
-                  <RefreshCw className="w-5 h-5 mr-2" />
-                  Next Round
-                </>
+                <button
+                  onClick={handleNextRound}
+                  className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center w-full"
+                  disabled={isMovingToNextRound}
+                >
+                  {isMovingToNextRound ? <Spinner /> : (
+                    <>
+                      <RefreshCw className="w-5 h-5 mr-2" />
+                      Next Round
+                    </>
+                  )}
+                </button>
               )}
-            </button>
-          )}
             </div>
           )}
           {gameState.status === 'gameOver' && (
@@ -241,8 +292,27 @@ export default function GameRoom({ initialGameState, roomCode }) {
                   {player.isHost ? 'Host' : 'Player'}
                 </p>
               </div>
-              <div className="flex-shrink-0 text-sm font-semibold text-blue-600">
-                {player.score}
+              {/* <div className="flex-shrink-0 text-sm font-semibold text-blue-600">
+                {player.score} {player.isBlackSheep && <Image src={blackSheep} width={24} height={24} alt="Black Sheep" className="w-6 h-6 ml-2" />}
+              </div> */}
+              <div className="flex items-center space-x-2">
+                <span className="px-2 py-1 bg-blue-100 text-blue-800 font-semibold rounded-full text-sm">
+                  {player.score}
+                </span>
+                {player.isBlackSheep && (
+                  <div className="relative group">
+                    <Image
+                      src={blackSheep}
+                      width={24}
+                      height={24}
+                      alt="Black Sheep"
+                      className="w-6 h-6 transition-transform duration-200 ease-in-out transform group-hover:scale-110"
+                    />
+                    <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
+                      Black Sheep
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           ))}
